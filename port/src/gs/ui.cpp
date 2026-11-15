@@ -1984,6 +1984,9 @@ static void audio_tab(PortVideo &v) {
 // calls): the request is set here and carried out on the game's side at the next vertical blank (headless.c).
 extern "C" {
 extern volatile int gPortUnlockAll, gPortUnlockDone;
+extern volatile int gPortEquipRedPotarasAll, gPortEquipRedPotarasDone;
+extern volatile int gPortCopyCustomAll, gPortCopyCustomDone;
+int Port_NetSession(void);
 }
 
 extern "C" int Port_GameSpeed(void);          // plat_stub.c: the player's own game speed, percent; never used online
@@ -2070,6 +2073,64 @@ static void cheats_tab(void) {
         }
         ImGui::EndPopup();
     }
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Native Health & Transformations (offline only)");
+    ImGui::TextWrapped("These settings affect offline battles only; online matches, demos and loaded replays retain the game's rules.");
+    ImGui::BeginDisabled(Port_NetSession() || Port_NetActive());
+    {
+        int hp = Port_Setting("cheat_native_hp_pct", 300);
+        hp = hp < 100 ? 100 : (hp > 600 ? 600 : hp);
+        if (ImGui::SliderInt("Native base health", &hp, 100, 600, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
+            Port_SettingSave("cheat_native_hp_pct", hp); Port_SettingsWrite();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Default##native_hp")) { Port_SettingSave("cheat_native_hp_pct", 300); Port_SettingsWrite(); }
+        ImGui::SameLine();
+        if (ImGui::Button("100%##native_hp")) { Port_SettingSave("cheat_native_hp_pct", 100); Port_SettingsWrite(); }
+        int gain = Port_Setting("cheat_transform_hp_pct", 25);
+        gain = gain < 0 ? 0 : (gain > 100 ? 100 : gain);
+        if (ImGui::SliderInt("Transform health gain", &gain, 0, 100, "+%d%% / tier", ImGuiSliderFlags_AlwaysClamp)) {
+            Port_SettingSave("cheat_transform_hp_pct", gain); Port_SettingsWrite();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Default##trans_hp")) { Port_SettingSave("cheat_transform_hp_pct", 25); Port_SettingsWrite(); }
+        ImGui::SameLine();
+        if (ImGui::Button("0%##trans_hp")) { Port_SettingSave("cheat_transform_hp_pct", 0); Port_SettingsWrite(); }
+    }
+    ImGui::EndDisabled();
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Red Potaras (offline only)");
+    ImGui::BeginDisabled(Port_NetSession() || Port_NetActive());
+    {
+        bool unlock = Port_Setting("cheat_evoz_red_potaras", 1) != 0;
+        if (ImGui::Checkbox("Red Potaras for every character", &unlock)) { Port_SettingSave("cheat_evoz_red_potaras", unlock); Port_SettingsWrite(); }
+        bool wide = Port_Setting("cheat_red_potara_wide", 1) != 0;
+        if (ImGui::Checkbox("Allow up to +60 Red Potara stats", &wide)) { Port_SettingSave("cheat_red_potara_wide", wide); Port_SettingsWrite(); }
+        int automatic = Port_Setting("cheat_auto_red_potaras", 0);
+        automatic = automatic < 0 ? 0 : (automatic > 2 ? 2 : automatic);
+        const char *autoItems[] = {"Off", "Player 1 side only", "All fighters"};
+        if (ImGui::Combo("Auto-equip playable Red Potaras", &automatic, autoItems, 3)) { Port_SettingSave("cheat_auto_red_potaras", automatic); Port_SettingsWrite(); }
+        ImGui::Spacing();
+        if (ImGui::Button("Equip Red Potaras to all characters (Custom 1)...")) ImGui::OpenPopup("Equip Red Potaras to all?");
+        if (gPortEquipRedPotarasDone) { ImGui::SameLine(); ImGui::TextUnformatted("Done."); }
+        if (ImGui::BeginPopupModal("Equip Red Potaras to all?", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::TextUnformatted("This overwrites Custom 1 for all 97 character slots and marks every Red Potara owned.");
+            if (ImGui::Button("Equip", ImVec2(U(140.0f), 0.0f))) { gPortEquipRedPotarasAll = 1; gPortEquipRedPotarasDone = 0; ImGui::CloseCurrentPopup(); }
+            ImGui::SameLine(); if (ImGui::Button("Cancel", ImVec2(U(140.0f), 0.0f))) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+        if (ImGui::Button("Copy 1st character's Custom 1-3 to all...")) ImGui::OpenPopup("Copy custom sets to all?");
+        if (gPortCopyCustomDone) { ImGui::SameLine(); ImGui::TextUnformatted("Done."); }
+        if (ImGui::BeginPopupModal("Copy custom sets to all?", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::TextUnformatted("This overwrites Custom 1-3 for character slots 2 through 97 with character 1's sets.");
+            if (ImGui::Button("Copy", ImVec2(U(140.0f), 0.0f))) { gPortCopyCustomAll = 1; gPortCopyCustomDone = 0; ImGui::CloseCurrentPopup(); }
+            ImGui::SameLine(); if (ImGui::Button("Cancel", ImVec2(U(140.0f), 0.0f))) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+    }
+    ImGui::EndDisabled();
 }
 
 // The Controls tab's part for the sticks: each stick of the player's controller as it is now (the dot), its deadzone

@@ -141,6 +141,9 @@ void BattleSetup_SetPoolMember(s32 count, s32 idx, s32 chara, s32 costume, s32 v
                                BattleItemSet *items);
 void BattleSetup_Finish(void);
 void BattleSetup_FinishEx(s32 wide);
+#ifdef PORT
+void Port_ApplyAutoRedPotaras(BattleMember *member, s32 side);
+#endif
 
 BtlReplay *BattleReplay_GetBuffer(s32 *size);
 s32 BattleReplay_Load(BtlReplay *buf, s32 size);

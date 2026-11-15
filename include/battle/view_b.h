@@ -152,6 +152,11 @@ void ItemSet_GetStats(u16 *ids, s32 *stats, s32 *ability, s32 chara);
 void ItemSet_GetStatsList(s32 *ids, s32 count, s32 *stats, s32 *ability);
 s32 ItemTbl_CanEquip(s32 item, s32 chara, ItemTblEntry *table);
 s32 ItemTbl_GetClass(s32 item, ItemTblEntry *table);
+#ifdef PORT
+int Port_RedPotaraUnlockOn(void);
+s32 Port_IsItemOwnedForEvoZ(s32 item);
+s32 Port_GetDefaultRedPotaraSet(u16 *ids);
+#endif
 
 /* ---- MenuUtil (view_b_c.c) ---- */
 

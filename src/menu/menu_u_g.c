@@ -1,6 +1,7 @@
 #include "common.h"
 #include "menu/menu_u.h"
 #ifdef PORT
+extern int Port_RedPotaraUnlockOn(void);
 extern void Port_MenuPage(int screen); /* port/src/gs_marker.c: widescreen menus */
 extern void Port_MenuFill(int on);
 #endif
@@ -44,13 +45,20 @@ void EvoZ_Init(s32 section) {
     gEvoZ->side->chara = gEvoZ->side->chip[gEvoZ->side->pick.col];
     EvoZ_RefreshStatus(gEvoZ);
     for (i = 0; i < UEVOZ_ITEM_MAX; i++) {
+#ifdef PORT
+        if (((gEvoZ->items[i].type < 3 && !(gEvoZ->items[i].flags & 5) && (gEvoZ->items[i].flags & 0x40)) ||
+             (Port_RedPotaraUnlockOn() && gEvoZ->items[i].type == 3))) {
+#else
         if (!(gEvoZ->items[i].flags & 5) && gEvoZ->items[i].type < 3 && (gEvoZ->items[i].flags & 0x40)) {
+#endif
             if (gEvoZ->items[i].type != 2) {
                 gEvoZ->list.ids[0][gEvoZ->list.count[0]] = i;
                 gEvoZ->list.count[0]++;
             }
-            gEvoZ->list.ids[gEvoZ->items[i].type + 1][gEvoZ->list.count[gEvoZ->items[i].type + 1]] = i;
-            gEvoZ->list.count[gEvoZ->items[i].type + 1]++;
+            if (gEvoZ->items[i].type < 3) {
+                gEvoZ->list.ids[gEvoZ->items[i].type + 1][gEvoZ->list.count[gEvoZ->items[i].type + 1]] = i;
+                gEvoZ->list.count[gEvoZ->items[i].type + 1]++;
+            }
         }
     }
     gEvoZ->list.rows = 6;

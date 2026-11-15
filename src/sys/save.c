@@ -3,8 +3,14 @@
 #include "sys/heap.h"
 #include "sys/rand.h"
 #include "sys/common.h"
+#ifdef PORT
+#include "battle/view_b.h"
+#endif
 
 extern void *memset(void *dst, s32 value, u32 size);
+#ifdef PORT
+extern void *memcpy(void *dst, const void *src, u32 size);
+#endif
 
 extern void Progress_ClearSession(void); /* clears the per-session parts of gProgress */
 
@@ -199,3 +205,35 @@ void Save_ResetRules(void) {
     gSaveData->rule[4] = 0;
     gSaveData->rule[5] = 0;
 }
+
+
+#ifdef PORT
+/* Port utility: make the type-3 Red Potaras available and equip the first seven in every Custom 1 set. */
+void Save_EquipRedPotarasAll(SaveData *opt) {
+    ChrTblFile *file = (ChrTblFile *)gCommonRes->data[2];
+    ItemTblEntry *items = (ItemTblEntry *)((u8 *)file + ((file->itemOffset >> 2) << 2));
+    s32 i, n;
+    u16 ids[SAVE_CUSTOM_ITEMS];
+    n = 0;
+    memset(ids, 0, sizeof(ids));
+    for (i = 0; i < SAVE_ITEM_COUNT; i++) {
+        if (items[i].type == 3) {
+            opt->item[i] |= SAVE_ITEM_OWNED;
+            if (n < ITEMSET_USABLE) ids[n++] = (u16)(i + 1);
+        }
+    }
+    for (i = 0; i < SAVE_CUSTOM_COUNT; i++) {
+        s32 j;
+        for (j = 0; j < SAVE_CUSTOM_ITEMS; j++) opt->custom[i].item[0][j] = ids[j];
+    }
+}
+
+/* Copies character zero's three custom sets to every saved character slot. */
+void Save_CopyCustomToAll(SaveData *opt) {
+    s32 i;
+    for (i = 1; i < SAVE_CUSTOM_COUNT; i++) {
+        memcpy(opt->custom[i].item, opt->custom[0].item, sizeof(opt->custom[0].item));
+    }
+}
+
+#endif /* PORT */

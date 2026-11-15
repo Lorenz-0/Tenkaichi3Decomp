@@ -48,6 +48,34 @@
 extern void *memset(void *dst, s32 c, u32 n);
 extern void *memcpy(void *dst, const void *src, u32 n);
 extern s32 rand(void);
+#ifdef PORT
+extern int Port_NetSession(void);
+extern int Port_NetActive(void);
+extern int Port_Setting(const char *name, int def);
+extern s32 Port_GetDefaultRedPotaraSet(u16 *ids);
+extern s32 BattleReplay_IsActive(void);
+extern s32 BattleReplay_IsLoaded(void);
+static s32 Port_BattleCheatsOn(void) {
+    return !Port_NetSession() && !Port_NetActive() && Battle_GetMode() != 7 &&
+           !(BattleReplay_IsActive() && BattleReplay_IsLoaded());
+}
+void Port_ApplyAutoRedPotaras(BattleMember *m, s32 side) {
+    u16 ids[8];
+    s32 stats[5], ability[4], i;
+    s32 mode = Port_Setting("cheat_auto_red_potaras", 0);
+    if (mode < 0 || mode > 2) mode = 0;
+    if (!Port_BattleCheatsOn() || mode == 0 || (mode == 1 && side != 0)) return;
+    if (Port_GetDefaultRedPotaraSet(ids) <= 0) return;
+    ItemSet_GetStats(ids, stats, ability, m->chara);
+    m->bonus[1] += stats[2]; m->bonus[2] += stats[0]; m->bonus[3] += stats[1]; m->bonus[4] += stats[2];
+    m->bonus[5] += stats[3]; m->bonus[6] += stats[3]; m->bonus[7] += stats[3];
+    for (i = 0; i < 4; i++) m->ability[i] |= ability[i];
+}
+static s32 Port_RedPotaraWideOn(void) {
+    return Port_BattleCheatsOn() && Port_Setting("cheat_red_potara_wide", 1) != 0 &&
+           (Battle_GetMode() == 0 || Battle_GetMode() == 4);
+}
+#endif
 
 extern BtlJobPool gBtlJobPool;
 extern s32 gBtlLoadHandle; /* handle of the model BtlLoad_StepObject is loading */
@@ -1658,6 +1686,9 @@ void BattleSetup_FinishEx(s32 wide) {
         pool = Battle_GetWork5A8();
         pool->cur = 0;
         for (j = 0; j < 50; j++) {
+#ifdef PORT
+            if (j > 0 && j < pool->count) Port_ApplyAutoRedPotaras(&pool->members[j], 1);
+#endif
             BtlMember_ClampBonus(&pool->members[j], 1);
         }
         SETUP()->sides[1].members[0] = pool->members[0];
@@ -1692,6 +1723,13 @@ void BattleSetup_FinishEx(s32 wide) {
         }
         for (j = 0; j < 5; j++) {
             m = &SETUP()->sides[i].members[j];
+#ifdef PORT
+            if (j < side->memberCount) Port_ApplyAutoRedPotaras(m, i);
+            if (Port_RedPotaraWideOn()) {
+                BtlMember_ClampBonus(m, 1);
+                continue;
+            }
+#endif
             if (side->control == 2) {
                 if (cpuWide) {
                     BtlMember_ClampBonus(m, 1);
@@ -2015,6 +2053,9 @@ void BattleSide_SetMemberItems(s32 side, s32 idx, BattleItemSet *items) {
     if (items != NULL) {
         m->items = *items;
         BtlMember_ApplyItems(m);
+#ifdef PORT
+        if (Port_RedPotaraWideOn()) BtlMember_ClampBonus(m, 1);
+#endif
     }
 }
 

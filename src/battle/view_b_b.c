@@ -10,11 +10,45 @@
  * ItemSet_GetStats when a member is set up (BtlMember_ApplyItems). See battle/view_b.h.
  */
 
-extern void *memset(void *dst, s32 c, u32 n);
-
-/* A section of common file 4. */
 #define CHRTBL_FILE ((ChrTblFile *)gCommonRes->data[2])
 #define CHRTBL_SECTION(file, ofs) ((u8 *)(file) + (((file)->ofs >> 2) << 2))
+
+extern void *memset(void *dst, s32 c, u32 n);
+#ifdef PORT
+extern int Port_NetSession(void);
+extern int Port_NetActive(void);
+extern int Port_Setting(const char *name, int def);
+extern s32 Battle_GetMode(void);
+extern s32 BattleReplay_IsActive(void);
+extern s32 BattleReplay_IsLoaded(void);
+int Port_RedPotaraUnlockOn(void) {
+    return !Port_NetSession() && !Port_NetActive() && Port_Setting("cheat_evoz_red_potaras", 1) != 0;
+}
+s32 Port_IsItemOwnedForEvoZ(s32 item) {
+    ItemTblEntry *table;
+    table = (ItemTblEntry *)CHRTBL_SECTION(CHRTBL_FILE, itemOffset);
+    if (Port_RedPotaraUnlockOn() && item >= 0 && item < SAVE_ITEM_COUNT && table[item].type == 3) return 1;
+    return item >= 0 && item < SAVE_ITEM_COUNT && (gSaveData->item[item] & SAVE_ITEM_OWNED) != 0;
+}
+
+/* Safe, playable type-3 boosts for battle auto-application: no negative stat penalties or lethal abilities. */
+s32 Port_GetDefaultRedPotaraSet(u16 *ids) {
+    ItemTblEntry *table = (ItemTblEntry *)CHRTBL_SECTION(CHRTBL_FILE, itemOffset);
+    s32 i, k, n = 0, bad;
+    for (i = 0; i < ITEMSET_COUNT; i++) ids[i] = 0;
+    for (i = 0; i < SAVE_ITEM_COUNT && n < ITEMSET_USABLE; i++) {
+        if (table[i].type != 3) continue;
+        bad = 0;
+        for (k = 0; k < ITEMSET_STAT_COUNT; k++) if (table[i].stat[k] < 0) bad = 1;
+        /* Ability 0x76 is damage immunity; 0x77 is the extreme damage ability. */
+        if ((table[i].ability[3] & ((1 << (0x76 - 96)) | (1 << (0x77 - 96)))) != 0) bad = 1;
+        /* Potara abilities 98..103 are health handicaps. */
+        if ((table[i].ability[3] & (0x7 << (101 - 96))) != 0) bad = 1;
+        if (!bad) ids[n++] = (u16)(i + 1);
+    }
+    return n;
+}
+#endif
 
 /* Returns the character's number of costumes, and sets *costume to 0 if it is not one of them. */
 s32 ChrTbl_WrapCostume(s32 chara, s32 *costume) {
@@ -89,6 +123,17 @@ s32 ItemSet_Fit(u16 *ids, ItemTblEntry *table, s32 capacity, s32 *used) {
     if (used != NULL) {
         *used = 0;
     }
+#ifdef PORT
+    if (Port_RedPotaraUnlockOn()) {
+        s32 count = 0;
+        for (i = 0; i < ITEMSET_USABLE; i++) {
+            if (ids[i] != 0) { total += table[ids[i] - 1].slots; count = i + 1; }
+        }
+        if (count > 0 && total < 1) total = 1;
+        if (used != NULL) *used = count > 0 ? count : (capacity > 0 ? 1 : 0);
+        return total;
+    }
+#endif
     for (i = 0; i < ITEMSET_USABLE; i++) {
         p = ids + i;
         if (*p != 0) {
@@ -232,6 +277,9 @@ s32 ItemTbl_CanEquip(s32 item, s32 chara, ItemTblEntry *table) {
     ChrTblFile *file;
     ChrTblEntry *charas;
 
+#ifdef PORT
+    if (Port_RedPotaraUnlockOn() && item >= 0 && table[item].type == 3) return 1;
+#endif
     if (flags & (ITEMTBL_FLAG_NONE_A | ITEMTBL_FLAG_NONE_B)) {
         return 0;
     }

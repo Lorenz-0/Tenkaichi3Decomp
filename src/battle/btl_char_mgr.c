@@ -10,6 +10,8 @@
 #ifdef PORT
 #include "bt3_zcounter2.h"
 #include "bt3_gameplay_rules.h"
+extern void Port_OnTransformHealth(void *chr, s32 memberIdx, s32 oldChara, s32 oldHealth, s32 oldMax, s32 transCost);
+extern void Port_OnFusionHealth(void *chr, s32 memberIdx, s32 chara, s32 healthMax);
 extern int Port_NetSession(void);
 extern int Port_NetActive(void);
 extern int Port_Setting(const char *name, int def);
@@ -373,6 +375,9 @@ void BtlChar_OnModelLoaded(BtlMgrChr *chr) {
     BtlMgrGauge *og;
     f32 ratio;
     s32 i;
+#ifdef PORT
+    s32 oldChara, oldHealth, oldMax, memberIdx, transCost;
+#endif
 
     BtlChar_BindObject(chr);
     obj = BtlChar_GetObj(chr);
@@ -389,6 +394,13 @@ void BtlChar_OnModelLoaded(BtlMgrChr *chr) {
     case 0xF0:
         /* transformation: keep the health ratio */
         m = BtlMember_GetActive(chr);
+#ifdef PORT
+        memberIdx = BtlMember_GetActiveIndex(chr);
+        oldChara = m->chara;
+        oldHealth = m->gauge.health;
+        oldMax = m->gauge.healthMax;
+        transCost = *(s32 *)&chr->unk12D8[0];
+#endif
         m->chara = chr->newChara;
         g = &m->gauge;
         m->costume = chr->newCostume;
@@ -396,6 +408,9 @@ void BtlChar_OnModelLoaded(BtlMgrChr *chr) {
         ratio = BtlMember_GetHealthRatio(chr);
         BtlMember_LoadParams(chr, BtlMember_GetActiveIndex(chr), 0, 0.0f, 0);
         g->health = (f32)g->healthMax * ratio + 0.5f;
+#ifdef PORT
+        Port_OnTransformHealth(chr, memberIdx, oldChara, oldHealth, oldMax, transCost);
+#endif
         if (BtlParam_GetUnkAD(chr) & 1) {
             g->health += 5000;
         }
@@ -455,6 +470,9 @@ void BtlChar_OnModelLoaded(BtlMgrChr *chr) {
             g->health += og->health;
             g->healthMax += og->healthMax;
             g->blastMax = gBtlChars->tbl[4][m->chara * 4 + 3] * 100000;
+#ifdef PORT
+            Port_OnFusionHealth(chr, BtlMember_GetActiveIndex(chr), m->chara, g->healthMax);
+#endif
             if (BtlParam_GetUnkAD(chr) & 1) {
                 g->health += 5000;
             }

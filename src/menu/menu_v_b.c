@@ -1,5 +1,9 @@
 #include "common.h"
 #include "menu/menu_v.h"
+#ifdef PORT
+extern int Port_RedPotaraUnlockOn(void);
+extern s32 Port_IsItemOwnedForEvoZ(s32 item);
+#endif
 
 /*
  * Menu overlay DBZP.BIN, 0x396838..0x399240: the second source file of the character customising screen
@@ -534,7 +538,13 @@ void EvoZ_Input(EvoZ *ez, s32 *result) {
             Snd_PlaySe(1, 0);
         } else if (gPad[0].gamePressed & 0x200) {
             EvoZ_ClipGoto(ez, 2, EVOZ_CLIP_LIST, 0, "fl_ok");
-            if ((u8)(VSAVE->item[EZ_L.ids[EZ_T][EZ_L.cur[EZ_T]]] & 1)) {
+            if (
+#ifdef PORT
+                Port_IsItemOwnedForEvoZ(EZ_L.ids[EZ_T][EZ_L.cur[EZ_T]])
+#else
+                (u8)(VSAVE->item[EZ_L.ids[EZ_T][EZ_L.cur[EZ_T]]] & 1)
+#endif
+                ) {
                 s32 id;
 
                 ItemHelp_Open();
@@ -790,6 +800,14 @@ s32 EvoZ_CanEquip(EvoZ *ez, s32 item) {
     s32 used;
     s32 i;
 
+#ifdef PORT
+    if (Port_RedPotaraUnlockOn()) {
+        if (!Port_IsItemOwnedForEvoZ(item)) return 0;
+        ids = VSAVE->custom[EZ_CELL].set[ez->set].id;
+        for (i = 0; i < 7; i++) if (i != ez->cur[3] && ids[i] == item + 1) return 0;
+        return 1;
+    }
+#endif
     if (!(u8)(VSAVE->item[item] & 1)) {
         return 0;
     }

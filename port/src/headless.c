@@ -52,9 +52,14 @@ void Port_MenuScene3D(int on) {
 }
 
 volatile int gPortUnlockAll, gPortUnlockDone;
+volatile int gPortEquipRedPotarasAll, gPortEquipRedPotarasDone;
+volatile int gPortCopyCustomAll, gPortCopyCustomDone;
 extern struct SaveData GAME_PTR gSaveData;
 extern void Save_UnlockAll(void *opt);
+extern void Save_EquipRedPotarasAll(void *opt);
+extern void Save_CopyCustomToAll(void *opt);
 extern int Port_NetSession(void); /* gs/net.c */
+extern int Port_NetActive(void);
 extern int Port_NetWarp(void);
 extern void Port_NetArrived(void);
 extern struct { int unk0[2]; int loadPack, loadRes, loadSprites; int flags; int mode; } GAME_PTR gProgress; /* include/menu/menu_a.h */
@@ -396,6 +401,20 @@ void Port_Trace(unsigned vblanks) {
             gPortUnlockDone = 1;
             printf("bt3: everything unlocked (Save_UnlockAll)\n");
             fflush(stdout);
+        }
+    }
+    if (gPortEquipRedPotarasAll) {
+        gPortEquipRedPotarasAll = 0;
+        if (gSaveData != NULL && !Port_NetSession() && !Port_NetActive()) {
+            Save_EquipRedPotarasAll(gSaveData);
+            gPortEquipRedPotarasDone = 1;
+        }
+    }
+    if (gPortCopyCustomAll) {
+        gPortCopyCustomAll = 0;
+        if (gSaveData != NULL && !Port_NetSession() && !Port_NetActive()) {
+            Save_CopyCustomToAll(gSaveData);
+            gPortCopyCustomDone = 1;
         }
     }
     if (every < 0) {

@@ -192,6 +192,10 @@ typedef struct BtlMemberHitFxReq {
 
 /* Register use: a0 chr, a1 member, a2 init, a3 variant, f12 healthPct. */
 void BtlMember_LoadParams(BtlMemberChr *chr, s32 member, s32 init, f32 healthPct, s32 variant);
+#ifdef PORT
+void Port_OnTransformHealth(void *chr, s32 memberIdx, s32 oldChara, s32 oldHealth, s32 oldMax, s32 transCost);
+void Port_OnFusionHealth(void *chr, s32 memberIdx, s32 chara, s32 healthMax);
+#endif
 BtlMember *BtlMember_Get(BtlMemberChr *chr, s32 n);
 BtlMember *BtlMember_GetActive(BtlMemberChr *chr);
 BtlMember *BtlMember_FindPresent(BtlMemberChr *chr, s32 chara);

@@ -1,5 +1,6 @@
 #include "common.h"
 #include "battle/btl_char_member.h"
+#include "battle/view_b.h"
 
 /*
  * Team members, parameters and gauges of a fighter: 0x1CDCA8..0x1CF578.
@@ -91,6 +92,130 @@ extern f32 Vec3_Dot(Vec4 *a, Vec4 *b);
 
 extern BtlMemberRoster *gBtlChars;
 
+#ifdef PORT
+extern int Port_NetSession(void);
+extern int Port_NetActive(void);
+extern int Port_Setting(const char *name, int def);
+extern s32 BattleReplay_IsActive(void);
+extern s32 BattleReplay_IsLoaded(void);
+extern s32 ChrTbl_GetCost(s32 chara);
+typedef struct PortHpState {
+    s32 baseHealthMax;
+    s32 curTier;
+    s32 peakTier;
+    s32 visitedChara[8];
+    s32 visitedTier[8];
+    s32 visitedCount;
+} PortHpState;
+static PortHpState sPortHpState[2][BTL_MEMBER_SLOTS];
+
+static s32 Port_HpCheatsOn(void) {
+    return !Port_NetSession() && !Port_NetActive() &&
+           !(BattleReplay_IsActive() && BattleReplay_IsLoaded()) && Battle_GetMode() != 7;
+}
+
+static s32 port_calc_member_base_max(BtlMemberChr *chr, s32 member, s32 chara) {
+    long long hp = gBtlChars->paramTbl[chara].healthMax;
+    s32 pct = Port_Setting("cheat_native_hp_pct", 300);
+    if (!Port_HpCheatsOn()) pct = 100;
+    if (pct < 100) pct = 100;
+    if (pct > 600) pct = 600;
+    hp = hp * pct / 100;
+    if (BtlMember_HasAbilityOf(chr, member, 100)) hp += 30000;
+    else if (BtlMember_HasAbilityOf(chr, member, 99)) hp += 20000;
+    else if (BtlMember_HasAbilityOf(chr, member, 98)) hp += 10000;
+    if (BtlMember_HasAbilityOf(chr, member, 103)) hp -= 30000;
+    else if (BtlMember_HasAbilityOf(chr, member, 102)) hp -= 20000;
+    else if (BtlMember_HasAbilityOf(chr, member, 101)) hp -= 10000;
+    if (hp > 0x7fffffffLL) hp = 0x7fffffffLL;
+    return BtlUtil_Max((s32)hp, 10000);
+}
+
+void Port_OnTransformHealth(void *opaque, s32 memberIdx, s32 oldChara, s32 oldHealth, s32 oldMax, s32 transCost) {
+    BtlMemberChr *chr = (BtlMemberChr *)opaque;
+    PortHpState *st;
+    BtlMember *m;
+    BtlMemberGauge *g;
+    s32 newChara, newDp, oldDp, deltaDp, steps, pct, formBase, newTier, ratioHealth, grant;
+    s32 i, found;
+    if (!Port_HpCheatsOn() || memberIdx < 0 || memberIdx >= BTL_MEMBER_SLOTS || chr->side < 0 || chr->side > 1) return;
+    st = &sPortHpState[chr->side][memberIdx];
+    m = BtlMember_Get(chr, memberIdx);
+    g = &m->gauge;
+    newChara = m->chara;
+    formBase = port_calc_member_base_max(chr, memberIdx, newChara);
+    oldDp = ChrTbl_GetCost(oldChara);
+    newDp = ChrTbl_GetCost(newChara);
+    newTier = st->curTier;
+    deltaDp = newDp - oldDp;
+    if (transCost > 0) {
+        steps = transCost / BTL_BLAST_STOCK;
+        if (deltaDp > steps) steps = deltaDp;
+        newTier += steps;
+    } else if (newDp < oldDp) {
+        steps = oldDp - newDp;
+        newTier = newTier > steps ? newTier - steps : 0;
+    } else {
+        if (deltaDp > 0) newTier += deltaDp;
+    }
+    found = -1;
+    for (i = 0; i < st->visitedCount && i < 8; i++) if (st->visitedChara[i] == newChara) { found = i; break; }
+    if (found >= 0) {
+        if (transCost == 0 && newDp < oldDp) {
+            newTier = st->visitedTier[found];
+        } else if (newTier > st->curTier) {
+            newTier = st->visitedTier[found] > st->curTier ? st->visitedTier[found] : st->curTier;
+        }
+    }
+    pct = Port_Setting("cheat_transform_hp_pct", 25);
+    if (pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
+    if (st->baseHealthMax <= 0) st->baseHealthMax = oldMax > 0 ? oldMax : formBase;
+    g->healthMax = BtlUtil_Max(st->baseHealthMax, formBase) +
+                   (s32)(((long long)st->baseHealthMax * pct * newTier) / 100);
+    ratioHealth = oldMax > 0 ? (s32)(((long long)oldHealth * g->healthMax + oldMax / 2) / oldMax) : g->health;
+    grant = oldHealth + (g->healthMax - oldMax);
+    if (newTier > st->peakTier && g->healthMax > oldMax) {
+        g->health = grant > ratioHealth ? grant : ratioHealth;
+        st->peakTier = newTier;
+    } else {
+        g->health = ratioHealth;
+    }
+    st->curTier = newTier;
+    if (found >= 0) st->visitedTier[found] = newTier;
+    else if (st->visitedCount < 8) {
+        st->visitedChara[st->visitedCount] = newChara;
+        st->visitedTier[st->visitedCount++] = newTier;
+    }
+    g->health = BtlUtil_Clamp(g->health, 1, g->healthMax);
+}
+
+void Port_OnFusionHealth(void *opaque, s32 memberIdx, s32 chara, s32 healthMax) {
+    BtlMemberChr *chr = (BtlMemberChr *)opaque;
+    PortHpState *st;
+    s32 pct, i;
+    long long tierBonus;
+    if (!Port_HpCheatsOn() || memberIdx < 0 || memberIdx >= BTL_MEMBER_SLOTS || chr->side < 0 || chr->side > 1) return;
+    st = &sPortHpState[chr->side][memberIdx];
+    pct = Port_Setting("cheat_transform_hp_pct", 25);
+    if (pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
+    tierBonus = (long long)st->baseHealthMax * pct * st->curTier / 100;
+    st->baseHealthMax = healthMax - (s32)tierBonus;
+    if (st->baseHealthMax < 10000) st->baseHealthMax = 10000;
+    for (i = 0; i < st->visitedCount && i < 8; i++) {
+        if (st->visitedChara[i] == chara) break;
+    }
+    if (i < st->visitedCount && i < 8) {
+        st->visitedTier[i] = st->curTier;
+    } else if (st->visitedCount < 8) {
+        st->visitedChara[st->visitedCount] = chara;
+        st->visitedTier[st->visitedCount++] = st->curTier;
+    }
+}
+#endif
+
+
 /* Opponent queue of mode 3 (battle work + 0x5A8); local view of BattleMemberPool. */
 typedef struct BtlMemberPool {
     /* 0x00 */ s32 cur;
@@ -132,6 +257,9 @@ void BtlMember_LoadParams(BtlMemberChr *chr, s32 member, s32 init, f32 healthPct
         g->fused = 0;
     }
     if (g->fused == 0) {
+#ifdef PORT
+        g->healthMax = port_calc_member_base_max(chr, member, m->chara);
+#else
         g->healthMax = gBtlChars->paramTbl[m->chara].healthMax;
         if (BtlMember_HasAbilityOf(chr, member, 100)) {
             g->healthMax += 30000;
@@ -148,6 +276,17 @@ void BtlMember_LoadParams(BtlMemberChr *chr, s32 member, s32 init, f32 healthPct
             g->healthMax -= 10000;
         }
         g->healthMax = BtlUtil_Max(g->healthMax, 10000);
+#endif
+#ifdef PORT
+        if (init) {
+            PortHpState *st = &sPortHpState[chr->side][member];
+            memset(st, 0, sizeof(*st));
+            st->baseHealthMax = g->healthMax;
+            st->visitedChara[0] = m->chara;
+            st->visitedTier[0] = 0;
+            st->visitedCount = 1;
+        }
+#endif
     }
     g->kiMax = 100000;
     g->blastMax = gBtlChars->paramTbl[m->chara].blastStocks * 100000;

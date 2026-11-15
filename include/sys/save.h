@@ -137,6 +137,10 @@ void Save_SetDefaults(SaveData *opt);
 void Save_Stub266600(SaveData *opt);
 void Save_Init(void);
 void Save_AddItem(s32 idx);
+#ifdef PORT
+void Save_EquipRedPotarasAll(SaveData *opt);
+void Save_CopyCustomToAll(SaveData *opt);
+#endif
 void Save_AddMoney(s32 amount);
 void Save_ResetRules(void);
 

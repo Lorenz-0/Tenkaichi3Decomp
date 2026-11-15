@@ -1,5 +1,12 @@
 #include "common.h"
 #include "menu/menu_u.h"
+#ifdef PORT
+extern int Port_RedPotaraUnlockOn(void);
+extern s32 Port_IsItemOwnedForEvoZ(s32 item);
+#define EVOZ_ITEM_OWNED(item) Port_IsItemOwnedForEvoZ(item)
+#else
+#define EVOZ_ITEM_OWNED(idx) ((gSaveData->item[idx] & 1) != 0)
+#endif
 
 /*
  * EvoZ, 0x393C58..0x395E30: the screen's per-frame set-up of its three movies. A second source file (it has
@@ -313,7 +320,7 @@ void EvoZ_Refresh(UEvoZ *ez) {
                 Flash_ClipSetCallbackA(flash, &ref, EvoZ_SetListScissor, 0);
                 Flash_ClipSetCallbackB(flash, &ref, EvoZ_ResetScissor, 0);
             }
-            if (EvoZ_CanEquip(ez, ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i]) || !(gSaveData->item[ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i]] & 1)) {
+            if (EvoZ_CanEquip(ez, ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i]) || !EVOZ_ITEM_OWNED(ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i])) {
                 Flash_ClipSetColor(flash, &ref, 1.0f);
             } else {
                 Flash_ClipSetColor(flash, &ref, 0.4f);
@@ -321,7 +328,13 @@ void EvoZ_Refresh(UEvoZ *ez) {
             Flash_FindLabel(flash, name, "mc_icon_custom", &ref);
             Flash_ClipSetFlags(flash, &ref, 2, 0);
             Flash_FindLabel(flash, name, "mc_list_plate_off", &ref);
-            if (gSaveData->item[ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i]] & 1) {
+            if (
+#ifdef PORT
+                Port_IsItemOwnedForEvoZ(ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i])
+#else
+                EVOZ_ITEM_OWNED(ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i])
+#endif
+                ) {
                 Flash_ClipSetTex(flash, &ref, 2);
             } else {
                 Flash_ClipSetTex(flash, &ref, 6);
@@ -334,7 +347,7 @@ void EvoZ_Refresh(UEvoZ *ez) {
             Flash_ClipSetUv(flash, &ref, &uv);
             Flash_ClipSetFlags(flash, &ref, 2, 1);
             Flash_FindLabel(flash, name, "mc_icon_item_cost", &ref);
-            if (ez->items[ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i]].slots != 0 && (gSaveData->item[ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i]] & 1)) {
+            if (ez->items[ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i]].slots != 0 && EVOZ_ITEM_OWNED(ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i])) {
                 uv.x0 = ez->items[ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i]].slots * 32 - 32;
                 uv.y0 = ItemTbl_GetClass(ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i], ez->items) * 42;
                 uv.x1 = uv.x0 + 32;
@@ -351,7 +364,13 @@ void EvoZ_Refresh(UEvoZ *ez) {
                 Flash_ClipSetFlags(flash, &ref, 2, 0);
             }
             Flash_FindLabel(flash, name, "mc_dammy_text", &ref);
-            if (gSaveData->item[ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i]] & 1) {
+            if (
+#ifdef PORT
+                Port_IsItemOwnedForEvoZ(ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i])
+#else
+                EVOZ_ITEM_OWNED(ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i])
+#endif
+                ) {
                 TextBox_AttachLine(flash, &ref, 0, 0, ez->list.ids[ez->list.tab][ez->list.top[ez->list.tab] + i], &ez->box[3 + i]);
             } else {
                 TextBox_AttachLine(flash, &ref, 0, 0, UEVOZ_ITEM_MAX, &ez->box[3 + i]);
@@ -362,7 +381,7 @@ void EvoZ_Refresh(UEvoZ *ez) {
         Flash_ClipSetFlags(flash, &ref, 0x400, 1);
         Flash_ClipSetCallbackA(flash, &ref, EvoZ_SetListScissor, 0);
         Flash_ClipSetCallbackB(flash, &ref, EvoZ_ResetScissor, 0);
-        if (EvoZ_CanEquip(ez, ez->list.ids[ez->list.tab][ez->list.extra]) || !(gSaveData->item[ez->list.ids[ez->list.tab][ez->list.extra]] & 1)) {
+        if (EvoZ_CanEquip(ez, ez->list.ids[ez->list.tab][ez->list.extra]) || !EVOZ_ITEM_OWNED(ez->list.ids[ez->list.tab][ez->list.extra])) {
             Flash_ClipSetColor(flash, &ref, 1.0f);
         } else {
             Flash_ClipSetColor(flash, &ref, 0.4f);
@@ -370,7 +389,13 @@ void EvoZ_Refresh(UEvoZ *ez) {
         Flash_FindLabel(flash, name, "mc_icon_custom", &ref);
         Flash_ClipSetFlags(flash, &ref, 2, 0);
         Flash_FindLabel(flash, name, "mc_list_plate_off", &ref);
-        if (gSaveData->item[ez->list.ids[ez->list.tab][ez->list.extra]] & 1) {
+        if (
+#ifdef PORT
+            Port_IsItemOwnedForEvoZ(ez->list.ids[ez->list.tab][ez->list.extra])
+#else
+            EVOZ_ITEM_OWNED(ez->list.ids[ez->list.tab][ez->list.extra])
+#endif
+            ) {
             Flash_ClipSetTex(flash, &ref, 2);
         } else {
             Flash_ClipSetTex(flash, &ref, 6);
@@ -383,7 +408,7 @@ void EvoZ_Refresh(UEvoZ *ez) {
         Flash_ClipSetUv(flash, &ref, &uv);
         Flash_ClipSetFlags(flash, &ref, 2, 1);
         Flash_FindLabel(flash, name, "mc_icon_item_cost", &ref);
-        if (ez->items[ez->list.ids[ez->list.tab][ez->list.extra]].slots != 0 && (gSaveData->item[ez->list.ids[ez->list.tab][ez->list.extra]] & 1)) {
+        if (ez->items[ez->list.ids[ez->list.tab][ez->list.extra]].slots != 0 && EVOZ_ITEM_OWNED(ez->list.ids[ez->list.tab][ez->list.extra])) {
             uv.x0 = ez->items[ez->list.ids[ez->list.tab][ez->list.extra]].slots * 32 - 32;
             uv.y0 = ItemTbl_GetClass(ez->list.ids[ez->list.tab][ez->list.extra], ez->items) * 42;
             uv.x1 = uv.x0 + 32;
@@ -400,7 +425,13 @@ void EvoZ_Refresh(UEvoZ *ez) {
             Flash_ClipSetFlags(flash, &ref, 2, 0);
         }
         Flash_FindLabel(flash, name, "mc_dammy_text", &ref);
-        if (gSaveData->item[ez->list.ids[ez->list.tab][ez->list.extra]] & 1) {
+        if (
+#ifdef PORT
+            Port_IsItemOwnedForEvoZ(ez->list.ids[ez->list.tab][ez->list.extra])
+#else
+            EVOZ_ITEM_OWNED(ez->list.ids[ez->list.tab][ez->list.extra])
+#endif
+            ) {
             TextBox_AttachLine(flash, &ref, 0, 0, ez->list.ids[ez->list.tab][ez->list.extra], &ez->box[9]);
         } else {
             TextBox_AttachLine(flash, &ref, 0, 0, UEVOZ_ITEM_MAX, &ez->box[9]);
