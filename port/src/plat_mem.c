@@ -277,13 +277,23 @@ int __wrap_main(int argc, char **argv) {
 /* -------------------------------------------------------------------------------------------------------- Linux */
 #include <sys/mman.h>
 #include <unistd.h>
+#include <errno.h>
 
 static void map(uint32_t addr, uint32_t size, const char *what) {
-    void *p = mmap((void *)(uintptr_t)addr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE,
+    void *wanted = (void *)(uintptr_t)addr;
+    void *p = mmap(wanted, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE,
                    -1, 0);
 
-    if (p != (void *)(uintptr_t)addr) {
-        fprintf(stderr, "bt3: cannot map %s at 0x%08X\n", what, addr);
+    /* WSL 1 kernels may not implement MAP_FIXED_NOREPLACE. Retry as an ordinary address hint on EINVAL,
+       then verify that mmap honored the exact address. This never replaces an existing mapping. */
+    if (p == MAP_FAILED && errno == EINVAL) {
+        p = mmap(wanted, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    }
+    if (p != wanted) {
+        int err = p == MAP_FAILED ? errno : 0;
+        if (p != MAP_FAILED) munmap(p, size);
+        fprintf(stderr, "bt3: cannot map %s at 0x%08X%s%s\n", what, addr,
+                err ? ": " : "", err ? strerror(err) : "");
         exit(2);
     }
 }
