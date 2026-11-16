@@ -284,9 +284,9 @@ static void map(uint32_t addr, uint32_t size, const char *what) {
     void *p = mmap(wanted, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE,
                    -1, 0);
 
-    /* WSL 1 kernels may not implement MAP_FIXED_NOREPLACE. Retry as an ordinary address hint on EINVAL,
-       then verify that mmap honored the exact address. This never replaces an existing mapping. */
-    if (p == MAP_FAILED && errno == EINVAL) {
+    /* WSL 1 kernels may not implement MAP_FIXED_NOREPLACE. Retry as an ordinary address hint when the flag is
+       rejected, then verify that mmap honored the exact address. This never replaces an existing mapping. */
+    if (p == MAP_FAILED && (errno == EINVAL || errno == EOPNOTSUPP)) {
         p = mmap(wanted, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     }
     if (p != wanted) {
