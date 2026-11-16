@@ -53,6 +53,7 @@ extern int Port_NetSession(void);
 extern int Port_NetActive(void);
 extern int Port_Setting(const char *name, int def);
 extern s32 Port_GetDefaultRedPotaraSet(u16 *ids);
+extern void ItemSet_GetStats(BattleItemSet *items, s32 *stats, s32 *ability, s32 chara);
 extern s32 BattleReplay_IsActive(void);
 extern s32 BattleReplay_IsLoaded(void);
 static s32 Port_BattleCheatsOn(void) {
@@ -60,13 +61,13 @@ static s32 Port_BattleCheatsOn(void) {
            !(BattleReplay_IsActive() && BattleReplay_IsLoaded());
 }
 void Port_ApplyAutoRedPotaras(BattleMember *m, s32 side) {
-    u16 ids[8];
+    BattleItemSet items;
     s32 stats[5], ability[4], i;
     s32 mode = Port_Setting("cheat_auto_red_potaras", 0);
     if (mode < 0 || mode > 2) mode = 0;
     if (!Port_BattleCheatsOn() || mode == 0 || (mode == 1 && side != 0)) return;
-    if (Port_GetDefaultRedPotaraSet(ids) <= 0) return;
-    ItemSet_GetStats(ids, stats, ability, m->chara);
+    if (Port_GetDefaultRedPotaraSet(items.id) <= 0) return;
+    ItemSet_GetStats(&items, stats, ability, m->chara);
     m->bonus[1] += stats[2]; m->bonus[2] += stats[0]; m->bonus[3] += stats[1]; m->bonus[4] += stats[2];
     m->bonus[5] += stats[3]; m->bonus[6] += stats[3]; m->bonus[7] += stats[3];
     for (i = 0; i < 4; i++) m->ability[i] |= ability[i];
